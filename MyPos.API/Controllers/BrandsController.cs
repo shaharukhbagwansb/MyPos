@@ -90,7 +90,7 @@ namespace MyPos.API.Controllers
                 .FirstOrDefaultAsync(c => c.BrandId == id && c.ClientID == clientId);
 
             if (brand == null)
-                return NotFound(new { message = "Brand not found" });
+                return NotFound(new { message = "Brand is not found" });
 
             brand.BrandName = request.BrandName.Trim();
             

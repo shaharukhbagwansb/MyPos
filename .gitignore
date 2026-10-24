@@ -1,1 +1,5 @@
 .vs/
+# Ignore .NET build and temporary output folders
+[Bb]in/
+[Oo]bj/
+
