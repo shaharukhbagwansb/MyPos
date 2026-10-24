@@ -331,7 +331,7 @@ namespace MyPos.API.Controllers
             {
                 return BadRequest(new
                 {
-                    message = "Product already exists"
+                    message = "Product is already exists"
                 });
             }
 
@@ -380,7 +380,7 @@ namespace MyPos.API.Controllers
             {
                 return NotFound(new
                 {
-                    message = "Product not found"
+                    message = "Product is not found"
                 });
             }
 

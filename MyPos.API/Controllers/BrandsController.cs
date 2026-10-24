@@ -108,7 +108,7 @@ namespace MyPos.API.Controllers
                 .FirstOrDefaultAsync(c => c.BrandId == id && c.ClientID == clientId);
 
             if (brand == null)
-                return NotFound(new { message = "brand is not found" });
+                return NotFound(new { message = " Brand is not found" });
 
             brand.IsActive = false;
             await _context.SaveChangesAsync();
