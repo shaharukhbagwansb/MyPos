@@ -8,14 +8,7 @@ namespace MyPos.API.Application.DTOs
         [MaxLength(100)]
         public string CategoryName { get; set; } = string.Empty;
         public string? Description { get; set; }
-    }
-
-    public class CreateBrandRequest
-    {
-        [Required]
-        [MaxLength(100)]
-        public string BrandName { get; set; } = string.Empty;
-    }
+    }    
 
     public class CreateUnitRequest
     {

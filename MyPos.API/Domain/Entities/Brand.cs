@@ -8,6 +8,6 @@
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        public Client Client { get; set; } = null!;
+        //public Client Client { get; set; } = null!;
     }
 }
