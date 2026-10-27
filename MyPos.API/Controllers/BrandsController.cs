@@ -1,10 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using MyPos.API.Application.DTOs;
 using MyPos.API.Domain.Entities;
-using MyPos.API.Infrastructure.Data;
-using System.Security.Claims;
+using MyPos.API.Services;
+using MyPos.API.Application.DTOs;
+
 namespace MyPos.API.Controllers
 {
     [ApiController]
@@ -12,109 +11,108 @@ namespace MyPos.API.Controllers
     [Authorize]
     public class BrandsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IMasterService _masterService;
 
-        public BrandsController(ApplicationDbContext context)
+        public BrandsController(IMasterService masterService)
         {
-            _context = context;
+            _masterService = masterService;
         }
 
         private int GetClientId()
         {
-            return int.Parse(User.FindFirst("ClientID")?.Value ?? "0");
+            var value = User.FindFirst("ClientID")?.Value;
+            return int.TryParse(value, out int id) ? id : 0;
         }
 
-        // GET All
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
+        private int GetUserId()
         {
-            var clientId = GetClientId();
-
-            var list = await _context.Brands
-                .Where(c => c.ClientID == clientId && c.IsActive)
-                .OrderBy(c => c.BrandName)
-                .Select(c => new
-                {
-                    c.BrandId,
-                    c.BrandName,
-                    c.IsActive
-                })
-                .ToListAsync();
-
-            return Ok(list);
+            var value = User.FindFirst("UserId")?.Value;
+            return int.TryParse(value, out int id) ? id : 0;
         }
 
-        // CREATE
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateBrandRequest request)
+        public async Task<IActionResult> Create([FromBody] Brand request,[FromQuery] string logStr)
         {
-            var clientId = GetClientId();
+            int clientId = GetClientId();
+            int userId = GetUserId();
+
+            if (clientId <= 0 || userId <= 0)
+                return Unauthorized();
 
             if (string.IsNullOrWhiteSpace(request.BrandName))
-                return BadRequest(new { message = "Brand Name is Required" });
+                return BadRequest("Brand Name is required");
 
-            var name = request.BrandName.Trim();
-
-            var exists = await _context.Brands
-                .AnyAsync(c => c.ClientID == clientId && c.BrandName == name && c.IsActive);
-
-            if (exists)
-                return BadRequest(new { message = "Brand is already exists" });
+            if (string.IsNullOrWhiteSpace(logStr))
+                return BadRequest("LogStr is required");
 
             var brand = new Brand
             {
                 ClientID = clientId,
-                 BrandName = name,
-                
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                BrandName = request.BrandName.Trim(),
+                IsActive = true
             };
 
-            _context.Brands.Add(brand);
-            await _context.SaveChangesAsync();
+            int brandId = await _masterService
+                .InsertBrandAsync(brand, userId, logStr);
 
             return Ok(new
             {
-                brandId = brand.BrandId,
-                brandName = brand.BrandName
+                brandId,
+                brandName = brand.BrandName,
+                isActive = brand.IsActive
             });
         }
+        // GET: api/Brands
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            int clientId = GetClientId();
 
-        // UPDATE
+            if (clientId <= 0)
+            {
+                return Unauthorized();
+            }                
+
+            var brands = await _masterService.GetBrandsAsync(clientId);
+
+            return Ok(brands);
+        }
+        // UPDATE BRAND
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] CreateBrandRequest request)
+        public async Task<IActionResult> Update(int id,[FromBody] Brand brand,[FromQuery] string logStr)
         {
-            var clientId = GetClientId();
+            int clientId = GetClientId();
+            int userId = GetUserId();
 
-            var brand = await _context.Brands
-                .FirstOrDefaultAsync(c => c.BrandId == id && c.ClientID == clientId);
+            if (clientId <= 0 || userId <= 0)
+                return Unauthorized();
 
-            if (brand == null)
-                return NotFound(new { message = "Brand is not found" });
+            if (id <= 0)
+                return BadRequest("Invalid BrandId");
 
-            brand.BrandName = request.BrandName.Trim();
-            
+            if (string.IsNullOrWhiteSpace(brand.BrandName))
+                return BadRequest("Brand Name is required");
 
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Updated successfully" });
+            if (string.IsNullOrWhiteSpace(logStr))
+                return BadRequest("LogStr is required");
+
+            brand.BrandId = id;
+            brand.ClientID = clientId;
+            brand.BrandName = brand.BrandName.Trim();
+            brand.IsActive = brand.IsActive;
+
+            bool updated = await _masterService.UpdateBrandAsync(brand, userId, logStr);
+
+            if (!updated)
+                return NotFound(new
+                {
+                    message = "Brand not found"
+                });
+
+            return Ok(new
+            {
+                message = "Brand updated successfully"
+            });
         }
-        // DELETE (Soft)
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
-        {
-            var clientId = GetClientId();
-
-            var brand = await _context.Brands
-                .FirstOrDefaultAsync(c => c.BrandId == id && c.ClientID == clientId);
-
-            if (brand == null)
-                return NotFound(new { message = " Brand is not found" });
-
-            brand.IsActive = false;
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Deleted successfully" });
-        }
-
     }
 }

@@ -5,10 +5,13 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Microsoft.OpenApi.Models;
 using MyPos.API.Infrastructure.Data;
+using MyPos.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddScoped<DbConnectionFactory>();
+builder.Services.AddScoped<IMasterService, MasterService>();
 builder.Services.AddEndpointsApiExplorer();
 
 // Swagger + JWT Support
