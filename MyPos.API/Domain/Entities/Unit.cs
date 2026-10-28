@@ -8,6 +8,6 @@
         public string ShortName { get; set; } = string.Empty;
         public bool IsActive { get; set; } = true;
 
-        public Client Client { get; set; } = null!;
+        //public Client Client { get; set; } = null!;
     }
 }

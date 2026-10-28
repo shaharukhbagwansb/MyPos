@@ -1,10 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using MyPos.API.Application.DTOs;
 using MyPos.API.Domain.Entities;
-using MyPos.API.Infrastructure.Data;
-using System.Security.Claims;
+using MyPos.API.Services;
 
 namespace MyPos.API.Controllers
 {
@@ -13,110 +10,115 @@ namespace MyPos.API.Controllers
     [Authorize]
     public class CategoriesController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IMasterService _masterService;
 
-        public CategoriesController(ApplicationDbContext context)
+        public CategoriesController(IMasterService masterService)
         {
-            _context = context;
+            _masterService = masterService;
         }
 
         private int GetClientId()
         {
-            return int.Parse(User.FindFirst("ClientID")?.Value ?? "0");
+            var value = User.FindFirst("ClientID")?.Value;
+            return int.TryParse(value, out int id) ? id : 0;
         }
 
-        // GET All
+        private int GetUserId()
+        {
+            var value = User.FindFirst("UserId")?.Value;
+            return int.TryParse(value, out int id) ? id : 0;
+        }
+
+        // GET ALL
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAllCategories()
         {
-            var clientId = GetClientId();
+            int clientId = GetClientId();
 
-            var list = await _context.Categories
-                .Where(c => c.ClientID == clientId && c.IsActive)
-                .OrderBy(c => c.CategoryName)
-                .Select(c => new
-                {
-                    c.CategoryId,
-                    c.CategoryName,
-                    c.Description,
-                    c.IsActive
-                })
-                .ToListAsync();
+            if (clientId <= 0)
+                return Unauthorized();
 
-            return Ok(list);
+            var categories = await _masterService.GetCategoriesAsync(clientId);
+
+            return Ok(categories);
         }
 
-        // CREATE
+        // INSERT CATEGORY
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateCategoryRequest request)
+        public async Task<IActionResult> CreateCategories([FromBody] Category request,[FromQuery] string logStr)
         {
-            var clientId = GetClientId();
+            int clientId = GetClientId();
+            int userId = GetUserId();
+
+            if (clientId <= 0 || userId <= 0)
+                return Unauthorized();
 
             if (string.IsNullOrWhiteSpace(request.CategoryName))
-                return BadRequest(new { message = "CategoryName required" });
+                return BadRequest("Category Name is required");
 
-            var name = request.CategoryName.Trim();
+            if (request.CategoryName.Trim().Length > 100)
+                return BadRequest("Category Name cannot exceed 100 characters");
 
-            var exists = await _context.Categories
-                .AnyAsync(c => c.ClientID == clientId && c.CategoryName == name && c.IsActive);
+            if (request.Description?.Length > 250)
+                return BadRequest("Description cannot exceed 250 characters");
 
-            if (exists)
-                return BadRequest(new { message = "Category already exists" });
+            if (string.IsNullOrWhiteSpace(logStr))
+                return BadRequest("LogStr is required");
 
             var category = new Category
             {
                 ClientID = clientId,
-                CategoryName = name,
+                CategoryName = request.CategoryName.Trim(),
                 Description = request.Description,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                IsActive = true
             };
 
-            _context.Categories.Add(category);
-            await _context.SaveChangesAsync();
+            int categoryId = await _masterService.InsertCategoryAsync(category, userId, logStr);
 
             return Ok(new
             {
-                categoryId = category.CategoryId,
-                categoryName = category.CategoryName
+                categoryId,
+                categoryName = category.CategoryName,
+                description = category.Description,
+                isActive = category.IsActive
             });
         }
 
-        // UPDATE
+        // UPDATE CATEGORY
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] CreateCategoryRequest request)
+        public async Task<IActionResult> UpdateCategories(int id,[FromBody] Category category,[FromQuery] string logStr)
         {
-            var clientId = GetClientId();
+            int clientId = GetClientId();
+            int userId = GetUserId();
 
-            var category = await _context.Categories
-                .FirstOrDefaultAsync(c => c.CategoryId == id && c.ClientID == clientId);
+            if (clientId <= 0 || userId <= 0)
+                return Unauthorized();
 
-            if (category == null)
+            if (id <= 0)
+                return BadRequest("Invalid CategoryId");
+
+            if (string.IsNullOrWhiteSpace(category.CategoryName))
+                return BadRequest("Category Name is required");
+
+            if (category.CategoryName.Trim().Length > 100)
+                return BadRequest("Category Name cannot exceed 100 characters");
+
+            if (category.Description?.Length > 250)
+                return BadRequest("Description cannot exceed 250 characters");
+
+            if (string.IsNullOrWhiteSpace(logStr))
+                return BadRequest("LogStr is required");
+
+            category.CategoryId = id;
+            category.ClientID = clientId;
+            category.CategoryName = category.CategoryName.Trim();
+
+            bool updated = await _masterService.UpdateCategoryAsync(category, userId, logStr);
+
+            if (!updated)
                 return NotFound(new { message = "Category not found" });
 
-            category.CategoryName = request.CategoryName.Trim();
-            category.Description = request.Description;
-
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Updated successfully" });
-        }
-
-        // DELETE (Soft)
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
-        {
-            var clientId = GetClientId();
-
-            var category = await _context.Categories
-                .FirstOrDefaultAsync(c => c.CategoryId == id && c.ClientID == clientId);
-
-            if (category == null)
-                return NotFound(new { message = "Category not found" });
-
-            category.IsActive = false;
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Deleted successfully" });
+            return Ok(new { message = "Category updated successfully" });
         }
     }
 }

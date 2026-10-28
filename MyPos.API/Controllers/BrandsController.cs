@@ -31,7 +31,7 @@ namespace MyPos.API.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Brand request,[FromQuery] string logStr)
+        public async Task<IActionResult> CreateBrands([FromBody] Brand request,[FromQuery] string logStr)
         {
             int clientId = GetClientId();
             int userId = GetUserId();
@@ -64,7 +64,7 @@ namespace MyPos.API.Controllers
         }
         // GET: api/Brands
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAllBrands()
         {
             int clientId = GetClientId();
 
@@ -79,7 +79,7 @@ namespace MyPos.API.Controllers
         }
         // UPDATE BRAND
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id,[FromBody] Brand brand,[FromQuery] string logStr)
+        public async Task<IActionResult> UpdateBrands(int id,[FromBody] Brand brand,[FromQuery] string logStr)
         {
             int clientId = GetClientId();
             int userId = GetUserId();
